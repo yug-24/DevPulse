@@ -81,7 +81,7 @@ app.use(errorHandler);
 const PORT = parseInt(process.env.PORT || '5000', 10);
 
 const start = async () => {
-  await connectDB();
+  // Start server first so healthcheck can respond
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🚀 DevPulse server`);
     console.log(`   Mode:    ${process.env.NODE_ENV || 'development'}`);
@@ -89,6 +89,15 @@ const start = async () => {
     console.log(`   Client:  ${ALLOWED_ORIGIN}`);
     console.log(`   Health:  http://localhost:${PORT}/health\n`);
   });
+
+  // Connect to database independently (don't block startup)
+  try {
+    await connectDB();
+  } catch (err) {
+    console.error('Failed to connect to database on startup:', err.message);
+    // Don't exit - let the server continue running
+    // Database reconnection can be attempted via middleware or scheduled retries
+  }
 };
 
 const shutdown = (sig) => {

@@ -16,7 +16,9 @@ const connectDB = async () => {
     );
   } catch (err) {
     console.error('❌ MongoDB connection failed:', err.message);
-    process.exit(1);
+    console.warn('⚠️  Server started without database - attempting reconnection...');
+    // Don't exit - allow server to continue running
+    // Mongoose will auto-retry connection attempts
   }
 };
 
