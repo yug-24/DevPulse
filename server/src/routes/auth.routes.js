@@ -25,9 +25,10 @@ router.get(
   authLimiter,
   passport.authenticate('github', {
     session: false,
-    failureRedirect: `${process.env.CLIENT_URL}/login?error=oauth_failed`,
+    failureRedirect: `${(process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '')}/login?error=oauth_failed`,
   }),
   (req, res) => {
+    const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
     try {
       // Issue JWT
       const token = signToken({
@@ -40,12 +41,11 @@ router.get(
       res.cookie('token', token, cookieOptions());
 
       // Redirect to dashboard — no token in URL (security)
-      res.redirect(`${process.env.CLIENT_URL}/dashboard`);
+      res.redirect(`${clientUrl}/dashboard`);
     } catch (err) {
       console.error('OAuth callback error:', err);
-      res.redirect(`${process.env.CLIENT_URL}/login?error=server_error`);
+      res.redirect(`${clientUrl}/login?error=server_error`);
     }
-  }
 );
 
 // ── GET /api/auth/me ──────────────────────────────────────────

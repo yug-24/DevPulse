@@ -1,8 +1,14 @@
 import axios from 'axios';
 
-const BASE = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL}/api`
-  : '/api';
+const getBaseURL = () => {
+  const url = import.meta.env.VITE_API_URL;
+  if (!url) return '/api';
+  // Ensure protocol is present
+  const protocol = url.includes('://') ? '' : 'https://';
+  return `${protocol}${url}/api`.replace(/\/+api/, '/api');
+};
+
+const BASE = getBaseURL();
 
 const api = axios.create({
   baseURL: BASE,

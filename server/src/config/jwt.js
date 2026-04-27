@@ -16,10 +16,14 @@ export const verifyToken = (token) =>
     audience: 'devpulse-client',
   });
 
-export const cookieOptions = () => ({
-  httpOnly: true,
-  secure:   process.env.NODE_ENV === 'production',
-  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-  maxAge:   7 * 24 * 60 * 60 * 1000, // 7 days
-  path:     '/',
-});
+export const cookieOptions = () => {
+  const isProd = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure:   isProd,
+    // Cross-site cookies (Vercel -> Railway) require SameSite=None and Secure=true
+    sameSite: isProd ? 'none' : 'lax',
+    maxAge:   7 * 24 * 60 * 60 * 1000, // 7 days
+    path:     '/',
+  };
+};

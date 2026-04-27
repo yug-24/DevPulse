@@ -43,16 +43,27 @@ app.use(
 );
 
 // ── CORS ───────────────────────────────────────────────────────
-const ALLOWED_ORIGIN = process.env.CLIENT_URL || 'http://localhost:5173';
+const ALLOWED_ORIGINS = [
+  process.env.CLIENT_URL,
+  'http://localhost:5173',
+  'http://localhost:3000',
+].filter(Boolean).map(url => url.replace(/\/$/, '')); // Remove trailing slashes
+
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin || origin === ALLOWED_ORIGIN) return cb(null, true);
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return cb(null, true);
+      
+      const sanitizedOrigin = origin.replace(/\/$/, '');
+      if (ALLOWED_ORIGINS.includes(sanitizedOrigin) || sanitizedOrigin.endsWith('.vercel.app')) {
+        return cb(null, true);
+      }
       cb(new Error(`CORS blocked: ${origin}`));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   })
 );
 
@@ -105,7 +116,7 @@ const start = async () => {
       console.log(`\n🚀 DevPulse server`);
       console.log(`   Mode:    ${process.env.NODE_ENV || 'development'}`);
       console.log(`   Port:    ${PORT}`);
-      console.log(`   Client:  ${ALLOWED_ORIGIN}`);
+      console.log(`   Client:  ${ALLOWED_ORIGINS.join(', ')}`);
       console.log(`   Health:  http://localhost:${PORT}/health\n`);
       resolve(server);
     });
