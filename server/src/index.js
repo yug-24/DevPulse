@@ -11,9 +11,20 @@ import { configurePassport } from './config/passport.js';
 import { globalLimiter } from './middleware/rateLimiter.js';
 import { errorHandler, notFound } from './middleware/error.middleware.js';
 
-import authRoutes   from './routes/auth.routes.js';
+import authRoutes from './routes/auth.routes.js';
 import githubRoutes from './routes/github.routes.js';
-import userRoutes   from './routes/user.routes.js';
+import userRoutes from './routes/user.routes.js';
+
+// ── Validate required env vars before doing anything else ─────
+const REQUIRED_ENV = ['NODE_ENV'];
+// Add any vars your app truly needs at boot (e.g. JWT_SECRET, SESSION_SECRET)
+// Remove or adjust as appropriate:
+// const REQUIRED_ENV = ['NODE_ENV', 'JWT_SECRET', 'MONGODB_URI'];
+const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k]);
+if (missingEnv.length) {
+  console.error(`❌ Missing required environment variables: ${missingEnv.join(', ')}`);
+  process.exit(1);
+}
 
 const app = express();
 
@@ -23,8 +34,8 @@ app.set('trust proxy', 1);
 // ── Security headers ──────────────────────────────────────────
 app.use(
   helmet({
-    crossOriginResourcePolicy:  { policy: 'cross-origin' },
-    contentSecurityPolicy: false, // Managed by Vercel on frontend
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: false,
     hsts: process.env.NODE_ENV === 'production'
       ? { maxAge: 31536000, includeSubDomains: true }
       : false,
@@ -55,23 +66,29 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // ── Passport ──────────────────────────────────────────────────
-configurePassport();
+try {
+  configurePassport();
+} catch (err) {
+  console.error('❌ Passport configuration failed:', err.message);
+  process.exit(1);
+}
 app.use(passport.initialize());
 
 // ── Health check ──────────────────────────────────────────────
-app.get('/health', (req, res) =>
+app.get('/health', (_req, res) =>
   res.json({
-    status:      'ok',
-    timestamp:   new Date().toISOString(),
-    uptime:      Math.round(process.uptime()),
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: Math.round(process.uptime()),
     environment: process.env.NODE_ENV,
+    db: global.__dbConnected ? 'connected' : 'connecting',
   })
 );
 
 // ── API Routes ────────────────────────────────────────────────
-app.use('/api/auth',   authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/github', githubRoutes);
-app.use('/api/users',  userRoutes);
+app.use('/api/users', userRoutes);
 
 // ── Error handling ────────────────────────────────────────────
 app.use(notFound);
@@ -81,39 +98,54 @@ app.use(errorHandler);
 const PORT = parseInt(process.env.PORT || '5000', 10);
 
 const start = async () => {
-  // Start server first so healthcheck can respond
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n🚀 DevPulse server`);
-    console.log(`   Mode:    ${process.env.NODE_ENV || 'development'}`);
-    console.log(`   Port:    ${PORT}`);
-    console.log(`   Client:  ${ALLOWED_ORIGIN}`);
-    console.log(`   Health:  http://localhost:${PORT}/health\n`);
+  // Bind the server FIRST so Railway's healthcheck can reach /health
+  // immediately while DB connects in the background.
+  await new Promise((resolve, reject) => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`\n🚀 DevPulse server`);
+      console.log(`   Mode:    ${process.env.NODE_ENV || 'development'}`);
+      console.log(`   Port:    ${PORT}`);
+      console.log(`   Client:  ${ALLOWED_ORIGIN}`);
+      console.log(`   Health:  http://localhost:${PORT}/health\n`);
+      resolve(server);
+    });
+
+    server.on('error', (err) => {
+      console.error('❌ Failed to bind server:', err.message);
+      reject(err);
+    });
   });
 
-  // Connect to database independently (don't block startup)
+  // Connect to DB after the server is already accepting requests
   try {
     await connectDB();
+    global.__dbConnected = true;
+    console.log('✅ Database connected');
   } catch (err) {
-    console.error('Failed to connect to database on startup:', err.message);
-    // Don't exit - let the server continue running
-    // Database reconnection can be attempted via middleware or scheduled retries
+    console.error('⚠️  Database connection failed (server still running):', err.message);
+    // Don't exit — let the server serve /health and handle retries
   }
 };
 
 const shutdown = (sig) => {
-  console.log(`\n${sig} — shutting down`);
+  console.log(`\n${sig} — shutting down gracefully`);
   process.exit(0);
 };
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT',  () => shutdown('SIGINT'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled rejection:', reason);
   if (process.env.NODE_ENV !== 'production') process.exit(1);
 });
+
 process.on('uncaughtException', (err) => {
   console.error('Uncaught exception:', err);
   process.exit(1);
 });
 
-start();
+start().catch((err) => {
+  console.error('❌ Server failed to start:', err.message);
+  process.exit(1);
+});
