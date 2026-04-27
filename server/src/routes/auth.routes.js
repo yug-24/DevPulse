@@ -59,7 +59,7 @@ router.get('/me', protect, (req, res) => {
 
 // ── POST /api/auth/logout ─────────────────────────────────────
 router.post('/logout', protect, (req, res) => {
-  res.clearCookie('token', { path: '/' });
+  res.clearCookie('token', cookieOptions());
   res.json({ success: true, message: 'Logged out successfully.' });
 });
 

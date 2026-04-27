@@ -18,11 +18,15 @@ export const verifyToken = (token) =>
 
 export const cookieOptions = () => {
   const isProd = process.env.NODE_ENV === 'production';
+  const hasVercelClient = process.env.CLIENT_URL?.includes('vercel.app');
+  
+  // Cross-site cookies require SameSite=None and Secure=true
+  const isCrossSite = isProd || hasVercelClient;
+
   return {
     httpOnly: true,
-    secure:   isProd,
-    // Cross-site cookies (Vercel -> Railway) require SameSite=None and Secure=true
-    sameSite: isProd ? 'none' : 'lax',
+    secure:   isCrossSite, 
+    sameSite: isCrossSite ? 'none' : 'lax',
     maxAge:   7 * 24 * 60 * 60 * 1000, // 7 days
     path:     '/',
   };
