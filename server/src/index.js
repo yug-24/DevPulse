@@ -45,20 +45,28 @@ app.use(
 // ── CORS ───────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
   process.env.CLIENT_URL,
+  'https://dev-pulse-rho.vercel.app',
   'http://localhost:5173',
   'http://localhost:3000',
-].filter(Boolean).map(url => url.replace(/\/$/, '')); // Remove trailing slashes
+].filter(Boolean).map(url => url.trim().replace(/\/$/, ''));
 
 app.use(
   cors({
     origin: (origin, cb) => {
-      // Allow requests with no origin (like mobile apps or curl)
       if (!origin) return cb(null, true);
       
-      const sanitizedOrigin = origin.replace(/\/$/, '');
-      if (ALLOWED_ORIGINS.includes(sanitizedOrigin) || sanitizedOrigin.endsWith('.vercel.app')) {
+      const sanitizedOrigin = origin.trim().replace(/\/$/, '');
+      const isAllowed = 
+        ALLOWED_ORIGINS.includes(sanitizedOrigin) || 
+        sanitizedOrigin.endsWith('.vercel.app') ||
+        sanitizedOrigin === 'https://dev-pulse-rho.vercel.app'; // Explicitly allow the user's domain
+
+      if (isAllowed) {
         return cb(null, true);
       }
+      
+      console.warn(`⚠️  CORS blocked origin: "${origin}"`);
+      console.warn(`   Allowed Origins:`, ALLOWED_ORIGINS);
       cb(new Error(`CORS blocked: ${origin}`));
     },
     credentials: true,
