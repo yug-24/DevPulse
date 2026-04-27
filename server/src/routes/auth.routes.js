@@ -46,6 +46,7 @@ router.get(
       console.error('OAuth callback error:', err);
       res.redirect(`${clientUrl}/login?error=server_error`);
     }
+  }
 );
 
 // ── GET /api/auth/me ──────────────────────────────────────────
