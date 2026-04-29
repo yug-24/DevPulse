@@ -32,7 +32,11 @@ api.interceptors.response.use(
   (err) => {
     // If 401, fire global event so AuthContext can handle redirect
     if (err.response?.status === 401) {
-      localStorage.removeItem('token');
+      // Only clear if we actually sent a token, to avoid race conditions
+      // where an unauthenticated request wipes a newly set token.
+      if (err.config?.headers?.Authorization) {
+        localStorage.removeItem('token');
+      }
       window.dispatchEvent(new CustomEvent('auth:unauthorized'));
     }
     return Promise.reject(err);

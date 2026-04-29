@@ -43,6 +43,12 @@ export const AuthProvider = ({ children }) => {
     restoredRef.current = true;
 
     const restore = async () => {
+      // Skip initial restore if we are on the callback page, 
+      // because OAuthCallbackPage handles the token and fetch itself.
+      if (window.location.pathname.startsWith('/auth/callback')) {
+        return;
+      }
+
       dispatch({ type: 'RESTORE_START' });
       try {
         const { data } = await authApi.me();
