@@ -40,8 +40,8 @@ router.get(
       // Set HttpOnly cookie
       res.cookie('token', token, cookieOptions());
 
-      // Redirect to dashboard — no token in URL (security)
-      res.redirect(`${clientUrl}/dashboard`);
+      // Redirect to auth callback to handle token locally (supports browsers blocking 3rd-party cookies)
+      res.redirect(`${clientUrl}/auth/callback?token=${token}`);
     } catch (err) {
       console.error('OAuth callback error:', err);
       res.redirect(`${clientUrl}/login?error=server_error`);

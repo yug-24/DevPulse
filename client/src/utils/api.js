@@ -17,12 +17,22 @@ const api = axios.create({
   timeout: 20000,
 });
 
+// ── Request interceptor ───────────────────────────────────────
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 // ── Response interceptor ──────────────────────────────────────
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     // If 401, fire global event so AuthContext can handle redirect
     if (err.response?.status === 401) {
+      localStorage.removeItem('token');
       window.dispatchEvent(new CustomEvent('auth:unauthorized'));
     }
     return Promise.reject(err);

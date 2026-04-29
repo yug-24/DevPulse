@@ -72,6 +72,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = useCallback(async () => {
     try { await authApi.logout(); } catch { /* best effort */ }
+    localStorage.removeItem('token');
     dispatch({ type: 'LOGOUT' });
   }, []);
 

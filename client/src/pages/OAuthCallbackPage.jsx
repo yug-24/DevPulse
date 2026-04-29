@@ -6,8 +6,8 @@ import { Zap } from 'lucide-react';
 
 /**
  * This page is hit after a successful GitHub OAuth redirect.
- * The server already set the JWT cookie before redirecting here.
- * We just need to fetch the user and redirect to the dashboard.
+ * The server passes the token in the URL params. We save it to localStorage
+ * to support browsers that block third-party cookies, then fetch the user.
  */
 const OAuthCallbackPage = () => {
   const { refreshUser } = useAuth();
@@ -19,6 +19,13 @@ const OAuthCallbackPage = () => {
     calledRef.current = true;
 
     const handleCallback = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      
+      if (token) {
+        localStorage.setItem('token', token);
+      }
+
       const user = await refreshUser();
       if (user) {
         navigate('/dashboard', { replace: true });
